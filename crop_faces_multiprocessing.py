@@ -1,15 +1,16 @@
 import cv2
 import math
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
+import time
 from mtcnn import MTCNN
 from multiprocessing import Pool
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
 detector = MTCNN()
-(cropped_height, cropped_width) = (160, 160)
 
-def crop_image(image_abs_path):
-    image = cv2.read(image_abs_path)
+def crop_face(image_path, cropped_height=224, cropped_width=224):
+    print(image_path + ': ', end='')
+    image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
     (image_width, image_height, image_channels) = image.shape
     if image_width < cropped_width or image_height < cropped_height:
         print("Resolution too low! Pass current frame.")
@@ -19,7 +20,7 @@ def crop_image(image_abs_path):
     print("%d faces detected." % (len(result)))
     if result:
         for i in range(len(result)):
-            print("Face %d: " % (i), end='')
+            # print("Face %d: " % (i), end='')
             bounding_box = result[i]['box']
             # keypoints = result[i]['keypoints']
             # color = (255,0,0)
@@ -38,7 +39,7 @@ def crop_image(image_abs_path):
                 continue
             center_x = int(bounding_box[0] + bounding_box[2] / 2)
             center_y = int(bounding_box[1] + bounding_box[3] / 2)
-            print("(%d, %d)" % (center_x, center_y))
+            # print("(%d, %d)" % (center_x, center_y))
             dx = cropped_width / 2
             dy = cropped_height / 2
             (left, right) = (center_x - math.floor(dx), center_x + math.ceil(dx))
@@ -57,15 +58,27 @@ def crop_image(image_abs_path):
             # print("Top-left corner: (%d, %d)" % (left, top))
             # print("Down-right corner: (%d, %d)" % (right, down))
             face = image[top : down, left : right]
-            face_dir = os.path.dirname(image_abs_path).replace("YTFaces", "YTFaces_HR")
+            face_dir = os.path.dirname(image_path).replace("YTFaces", "YTFaces_HR_" + str(cropped_width) + "X" + str(cropped_height))
             if not os.path.exists(face_dir):
                 os.makedirs(face_dir)
-            face_abs_path = image_abs_path.replace("YTFaces", "YTFaces_HR") + "_face%d.jpg" % (i)
+            face_abs_path = image_path.replace("YTFaces", "YTFaces_HR_" + str(cropped_width) + "X" + str(cropped_height)) + "_face%d.jpg" % (i)
             cv2.imwrite(face_abs_path, cv2.cvtColor(face, cv2.COLOR_RGB2BGR))
+    return
 
 if __name__ == '__main__':
-    g = os.walk(os.path.join(base_dir, r"YTFaces"))
-    for (path, dir_list, file_list) in g:
-        images_abs_path = [os.path.join(path, file_name) for file_name in file_list if file_name.endswith(".jpg")]
-        with Pool(100) as p:
-            p.map(crop_image, images_abs_path)
+    p = Pool(processes = 4)
+    start_time = time.time()
+    cnt = 0
+    for (path, dir_list, file_list) in os.walk(r'.\YTFaces'):
+        print(path)
+        images_path_list = [os.path.join(path, file_name) for file_name in file_list if file_name.endswith(".jpg")]
+        for image_path in images_path_list:
+            cnt += 1
+            p.apply_async(crop_face(image_path))
+    p.close()
+    p.join()
+    end_time = time.time()
+    print("--- %s seconds ---" % (end_time - start_time))
+    print(cnt)
+        # for image_path in images_path_list:
+        #     crop_image(image_path)
