@@ -1,7 +1,6 @@
 import cv2
 import math
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import time
 from mtcnn import MTCNN
 from multiprocessing import Pool
@@ -80,5 +79,3 @@ if __name__ == '__main__':
     end_time = time.time()
     print("--- %s seconds ---" % (end_time - start_time))
     print(cnt)
-        # for image_path in images_path_list:
-        #     crop_image(image_path)
